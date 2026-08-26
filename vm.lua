@@ -1,4 +1,3 @@
-local component = require("component")
 local computer = require("computer")
 local event = require("event")
 
@@ -18,27 +17,30 @@ local mem = Memory.new(RAM_SIZE)
 local cpu = CPU.new(mem)
 mem:setCPU(cpu)
 
+io.write("loading image...")
 local addr = 0x80000000
+local loaded = 0
 while true do
-  local block = f:read(4096)
+  local block = f:read(8192)
   if not block then break end
   for i = 1, #block do
     mem:w8(addr, block:byte(i))
     addr = addr + 1
   end
+  loaded = loaded + #block
 end
 f:close()
+print(" " .. loaded .. " bytes")
 
 cpu.x[10] = 0
-cpu.x[11] = RAM_SIZE - 0x1000
+cpu.x[11] = 0
 cpu.pc = 0x80000000
 
 print("booting...")
 
 local INSTR_PER_FLIP = 1024
-local running = true
 
-while cpu.running and running do
+while cpu.running do
   cpu:tick(INSTR_PER_FLIP)
   for i = 1, INSTR_PER_FLIP do
     cpu:step()
@@ -46,13 +48,14 @@ while cpu.running and running do
   end
   if mem.syscon == 0x5555 then
     print("\n[poweroff]")
-    running = false
+    break
   end
   local ev, _, ch = event.pull(0)
   if ev == "key_down" and ch and ch > 0 then
     mem:pushChar(ch)
   end
-  if computer.freeMemory() < 20000 then
-    os.sleep(0)
+  if ev == "interrupted" then
+    print("\n[stopped]")
+    break
   end
 end
