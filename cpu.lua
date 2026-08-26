@@ -254,6 +254,7 @@ function CPU:step()
       elseif funct5 == 0x1C then r = (mval < b) and b or mval
       else r = mval end
       mem:w32(a, u32(r))
+      io.write("[AMO rd="..rd.." mval="..mval.."]\n")
       self:setReg(rd, mval)
     end
 
