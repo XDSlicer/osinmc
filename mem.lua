@@ -2,13 +2,11 @@ local Memory = {}
 Memory.__index = Memory
 
 local RAM_BASE = 0x80000000
-local CHUNK = 65536
 
 function Memory.new(size)
   local self = setmetatable({}, Memory)
   self.size = size
   self.chunks = {}
-  self.uart_lsr = 0x60
   self.uart_rx = nil
   self.syscon = 0
   self.cpu = nil
