@@ -2,14 +2,12 @@ local Memory = {}
 Memory.__index = Memory
 
 local UART_ADDR = 0x10000000
+local CHUNK = 65536
 
 function Memory.new(size)
   local self = setmetatable({}, Memory)
   self.size = size
-  self.data = {}
-  for i = 0, size - 1 do
-    self.data[i] = 0
-  end
+  self.chunks = {}
   return self
 end
 
@@ -19,19 +17,27 @@ function Memory:w8(addr, val)
     io.write(string.char(val))
     return
   end
-  self.data[addr] = val
+  local ci = addr >> 16
+  local off = addr & 0xFFFF
+  local c = self.chunks[ci]
+  if not c then
+    c = {}
+    self.chunks[ci] = c
+  end
+  c[off] = val
 end
 
 function Memory:r8(addr)
   if addr == UART_ADDR + 5 then
     return 0x60
   end
-  return self.data[addr] or 0
+  local c = self.chunks[addr >> 16]
+  if not c then return 0 end
+  return c[addr & 0xFFFF] or 0
 end
 
 function Memory:r16(addr)
-  local d = self.data
-  return (self:r8(addr)) | ((self:r8(addr + 1)) << 8)
+  return self:r8(addr) | (self:r8(addr + 1) << 8)
 end
 
 function Memory:w16(addr, val)
@@ -40,10 +46,10 @@ function Memory:w16(addr, val)
 end
 
 function Memory:r32(addr)
-  return (self:r8(addr))
-    | ((self:r8(addr + 1)) << 8)
-    | ((self:r8(addr + 2)) << 16)
-    | ((self:r8(addr + 3)) << 24)
+  return self:r8(addr)
+    | (self:r8(addr + 1) << 8)
+    | (self:r8(addr + 2) << 16)
+    | (self:r8(addr + 3) << 24)
 end
 
 function Memory:w32(addr, val)
