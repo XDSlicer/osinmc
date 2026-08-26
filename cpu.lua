@@ -15,7 +15,7 @@ function CPU.new(mem)
   self.mem = mem
   self.x = {}
   for i = 0, 31 do self.x[i] = 0 end
-   self.pc = 0
+  self.pc = 0
   self.running = true
   self.csr = {}
   self.priv = 3
@@ -32,6 +32,18 @@ function CPU:getReg(i)
   return self.x[i]
 end
 
+function CPU:trapEnter(cause, tval)
+  self.csr[0x341] = self.pc
+  self.csr[0x342] = cause
+  self.csr[0x343] = tval
+  local mstatus = self.csr[0x300] or 0
+  mstatus = (mstatus & u32(~(0x3 << 11))) | (self.priv << 11)
+  self.csr[0x300] = mstatus
+  self.priv = 3
+  local tvec = self.csr[0x305] or 0
+  self.pc = tvec & 0xFFFFFFFC
+end
+
 function CPU:step()
   local mem = self.mem
   local pc = self.pc
@@ -46,7 +58,7 @@ function CPU:step()
 
   local nextpc = u32(pc + 4)
 
-   if opcode == 0x33 then
+  if opcode == 0x33 then
     local a = self.x[rs1]
     local b = self.x[rs2]
     local r
@@ -211,7 +223,9 @@ function CPU:step()
       mem:w32(addr, v)
     end
 
-   elseif opcode == 0x73 then
+  elseif opcode == 0x0F then
+
+  elseif opcode == 0x73 then
     local imm12 = (inst >> 20) & 0xFFF
     if funct3 == 0x0 then
       if imm12 == 0x000 then
@@ -246,7 +260,7 @@ function CPU:step()
       elseif funct3 == 0x3 or funct3 == 0x7 then
         newval = old & u32(~src)
       end
-if rd ~= 0 then self:setReg(rd, old) end
+      if rd ~= 0 then self:setReg(rd, old) end
       self.csr[csraddr] = u32(newval)
     end
 
@@ -256,18 +270,6 @@ if rd ~= 0 then self:setReg(rd, old) end
   end
 
   self.pc = nextpc
-end
-
-function CPU:trapEnter(cause, tval)
-  self.csr[0x341] = self.pc
-  self.csr[0x342] = cause
-  self.csr[0x343] = tval
-  local mstatus = self.csr[0x300] or 0
-  mstatus = (mstatus & u32(~(0x3 << 11))) | (self.priv << 11)
-  self.csr[0x300] = mstatus
-  self.priv = 3
-  local tvec = self.csr[0x305] or 0
-  self.pc = tvec & 0xFFFFFFFC
 end
 
 return CPU
