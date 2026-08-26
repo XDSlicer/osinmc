@@ -15,8 +15,10 @@ function CPU.new(mem)
   self.mem = mem
   self.x = {}
   for i = 0, 31 do self.x[i] = 0 end
-  self.pc = 0
+   self.pc = 0
   self.running = true
+  self.csr = {}
+  self.priv = 3
   return self
 end
 
@@ -209,8 +211,57 @@ function CPU:step()
       mem:w32(addr, v)
     end
 
-  elseif opcode == 0x73 then
-    self.running = false
+   elseif opcode == 0x73 then
+    local imm12 = (inst >> 20) & 0xFFF
+    if funct3 == 0x0 then
+      if imm12 == 0x000 then
+        self:trapEnter(11, 0)
+        return
+      elseif imm12 == 0x001 then
+        self:trapEnter(3, 0)
+        return
+      elseif imm12 == 0x302 then
+        local mstatus = self.csr[0x300] or 0
+        local mpp = (mstatus >> 11) & 0x3
+        self.priv = mpp
+        self.pc = self.csr[0x341] or 0
+        return
+      else
+        self.running = false
+      end
+    else
+      local csraddr = imm12
+      local old = self.csr[csraddr] or 0
+      local src
+      if funct3 == 0x5 or funct3 == 0x6 or funct3 == 0x7 then
+        src = rs1
+      else
+        src = self.x[rs1]
+      end
+      local newval = old
+      if funct3 == 0x1 or funct3 == 0x5 then
+        newval = src
+      elseif funct3 == 0x2 or funct3 == 0x6 then
+        newval = old | src
+      elseif funct3 == 0x3 or funct3 == 0x7 then
+        newval = old & u32(~src)
+      end
+      if rd ~= 0 then self:setReg(rd, old) end
+      if not (funct3 == 0x2 or funct3 == 0x6) or rs1 ~= 0 then
+        self.csr[csraddr] = u32(newval)
+      end
+    end
+    function CPU:trapEnter(cause, tval)
+  self.csr[0x341] = self.pc
+  self.csr[0x342] = cause
+  self.csr[0x343] = tval
+  local mstatus = self.csr[0x300] or 0
+  mstatus = (mstatus & u32(~(0x3 << 11))) | (self.priv << 11)
+  self.csr[0x300] = mstatus
+  self.priv = 3
+  local tvec = self.csr[0x305] or 0
+  self.pc = tvec & 0xFFFFFFFC
+end
 
   else
     self.running = false
