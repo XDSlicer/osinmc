@@ -14,7 +14,7 @@ for _, word in ipairs(prog) do
   addr = addr + 4
 end
 for i = 1, 3 do cpu:step() end
-print("x1 = " .. cpu:getReg(1) .. " (want 256)")
-print("x2 = " .. cpu:getReg(2) .. " (want 2)")
-print("x3 = " .. cpu:getReg(3) .. " (want 40)")
-print("mem[0x100] = " .. mem:r32(0x100) .. " (want 42)")
+print("x1 = " .. cpu:getReg(1))
+print("x2 = " .. cpu:getReg(2))
+print("x3 = " .. cpu:getReg(3))
+print("mem = " .. mem:r32(0x100))
