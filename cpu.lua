@@ -218,7 +218,6 @@ function CPU:step()
     end
 
   elseif opcode == 0x0F then
-    -- fence: nop
 
   elseif opcode == 0x2F then
     local a = u32(self.x[rs1])
