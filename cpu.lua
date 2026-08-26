@@ -223,4 +223,79 @@ function CPU:step()
   elseif opcode == 0x2F then
     local a = u32(self.x[rs1])
     local funct5 = (funct7 >> 2) & 0x1F
-    local mval =
+    local mval = mem:r32(a)
+    local b = self.x[rs2]
+    if funct5 == 0x02 then
+      self.reservation = a
+      self:setReg(rd, mval)
+    elseif funct5 == 0x03 then
+      if self.reservation == a then
+        mem:w32(a, b) self:setReg(rd, 0)
+      else self:setReg(rd, 1) end
+      self.reservation = nil
+    else
+      local r
+      if funct5 == 0x00 then r = u32(mval + b)
+      elseif funct5 == 0x01 then r = b
+      elseif funct5 == 0x04 then r = mval ~ b
+      elseif funct5 == 0x08 then r = mval | b
+      elseif funct5 == 0x0C then r = mval & b
+      elseif funct5 == 0x10 then r = (sext(mval,32)<sext(b,32)) and mval or b
+      elseif funct5 == 0x14 then r = (sext(mval,32)<sext(b,32)) and b or mval
+      elseif funct5 == 0x18 then r = (mval<b) and mval or b
+      elseif funct5 == 0x1C then r = (mval<b) and b or mval
+      else r = mval end
+      mem:w32(a, u32(r))
+      self:setReg(rd, mval)
+    end
+
+  elseif opcode == 0x73 then
+    local imm12 = (inst >> 20) & 0xFFF
+    if funct3 == 0x0 then
+      if imm12 == 0x000 then
+        self:trapEnter(11, 0) return
+      elseif imm12 == 0x001 then
+        self:trapEnter(3, 0) return
+      elseif imm12 == 0x302 then
+        local ms = self.csr[0x300] or 0
+        local mpp = (ms >> 11) & 0x3
+        local mpie = (ms >> 7) & 0x1
+        ms = (ms & u32(~(0x1 << 3))) | (mpie << 3)
+        ms = ms | (0x1 << 7)
+        self.csr[0x300] = ms
+        self.priv = mpp
+        self.pc = self.csr[0x341] or 0
+        return
+      elseif imm12 == 0x105 then
+        self.wfi = true
+        self.pc = nextpc
+        return
+      else
+        self.pc = nextpc
+        return
+      end
+    else
+      local csraddr = imm12
+      local old = self.csr[csraddr] or 0
+      local src
+      if funct3 >= 0x5 then src = rs1 else src = self.x[rs1] end
+      local newval = old
+      if funct3 == 0x1 or funct3 == 0x5 then newval = src
+      elseif funct3 == 0x2 or funct3 == 0x6 then newval = old | src
+      elseif funct3 == 0x3 or funct3 == 0x7 then newval = old & u32(~src)
+      end
+      if rd ~= 0 then self:setReg(rd, old) end
+      if not ((funct3 == 0x2 or funct3 == 0x6 or funct3 == 0x3 or funct3 == 0x7) and rs1 == 0) then
+        self.csr[csraddr] = u32(newval)
+      end
+    end
+
+  else
+    self:trapEnter(2, inst)
+    return
+  end
+
+  self.pc = nextpc
+end
+
+return CPU
