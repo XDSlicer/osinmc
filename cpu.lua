@@ -44,10 +44,38 @@ function CPU:step()
 
   local nextpc = u32(pc + 4)
 
-  if opcode == 0x33 then
+   if opcode == 0x33 then
     local a = self.x[rs1]
     local b = self.x[rs2]
     local r
+    if funct7 == 0x01 then
+      local sa = sext(a, 32)
+      local sb = sext(b, 32)
+      if funct3 == 0x0 then
+        r = u32(sa * sb)
+      elseif funct3 == 0x1 then
+        r = u32((sa * sb) >> 32)
+      elseif funct3 == 0x2 then
+        r = u32((sa * b) >> 32)
+      elseif funct3 == 0x3 then
+        r = u32((a * b) >> 32)
+      elseif funct3 == 0x4 then
+        if b == 0 then r = 0xFFFFFFFF
+        elseif sa == -2147483648 and sb == -1 then r = u32(sa)
+        else r = u32(sa // sb) end
+      elseif funct3 == 0x5 then
+        if b == 0 then r = 0xFFFFFFFF else r = u32(a // b) end
+      elseif funct3 == 0x6 then
+        if b == 0 then r = u32(sa)
+        elseif sa == -2147483648 and sb == -1 then r = 0
+        else r = u32(sa - (sa // sb) * sb) end
+      elseif funct3 == 0x7 then
+        if b == 0 then r = u32(a) else r = u32(a - (a // b) * b) end
+      end
+      self:setReg(rd, r)
+      self.pc = nextpc
+      return
+    end
     if funct3 == 0x0 then
       if funct7 == 0x20 then
         r = a - b
