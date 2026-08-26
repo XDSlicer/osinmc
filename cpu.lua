@@ -246,12 +246,19 @@ function CPU:step()
       elseif funct3 == 0x3 or funct3 == 0x7 then
         newval = old & u32(~src)
       end
-      if rd ~= 0 then self:setReg(rd, old) end
-      if not (funct3 == 0x2 or funct3 == 0x6) or rs1 ~= 0 then
-        self.csr[csraddr] = u32(newval)
-      end
+if rd ~= 0 then self:setReg(rd, old) end
+      self.csr[csraddr] = u32(newval)
     end
-    function CPU:trapEnter(cause, tval)
+
+  else
+    self.running = false
+    self.trap = string.format("bad opcode %02X at pc=%08X", opcode, pc)
+  end
+
+  self.pc = nextpc
+end
+
+function CPU:trapEnter(cause, tval)
   self.csr[0x341] = self.pc
   self.csr[0x342] = cause
   self.csr[0x343] = tval
@@ -261,14 +268,6 @@ function CPU:step()
   self.priv = 3
   local tvec = self.csr[0x305] or 0
   self.pc = tvec & 0xFFFFFFFC
-end
-
-  else
-    self.running = false
-    self.trap = string.format("bad opcode %02X at pc=%08X", opcode, pc)
-  end
-
-  self.pc = nextpc
 end
 
 return CPU
