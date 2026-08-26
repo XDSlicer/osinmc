@@ -7,17 +7,14 @@ local prog = {
   0x10000093,
   0x00200113,
   0x0020A1AF,
-  0x00000073,
 }
 local addr = 0
 for _, word in ipairs(prog) do
   mem:w32(addr, word)
   addr = addr + 4
 end
-local steps = 0
-while cpu.running and steps < 100 do
-  cpu:step()
-  steps = steps + 1
-end
+for i = 1, 3 do cpu:step() end
+print("x1 = " .. cpu:getReg(1) .. " (want 256)")
+print("x2 = " .. cpu:getReg(2) .. " (want 2)")
 print("x3 = " .. cpu:getReg(3) .. " (want 40)")
 print("mem[0x100] = " .. mem:r32(0x100) .. " (want 42)")
